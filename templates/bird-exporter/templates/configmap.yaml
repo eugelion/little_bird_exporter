@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "bird-exporter.fullname" . }}-config
+  namespace: {{ include "bird-exporter.namespace" . }}
+  labels:
+    {{- include "bird-exporter.labels" . | nindent 4 }}
+data:
+  config.yaml: |
+    poll_interval_seconds: {{ .Values.config.pollIntervalSeconds }}
+    metrics_port: {{ .Values.config.metricsPort }}
+
+    collectors:
+    {{- range .Values.collectors }}
+      - name: {{ .name }}
+        collector_type: {{ default "generic_exec" .collectorType | quote }}
+        namespace: {{ .namespace }}
+        pod_name_regex: {{ .podNameRegex | quote }}
+        exec_command: {{ .execCommand | quote }}
+        exec_timeout_seconds: {{ default 30 .execTimeoutSeconds }}
+        protocol: {{ $.Values.birdProtocol | quote }}
+        metrics:
+{{ toYaml .metrics | nindent 10 }}
+    {{- end }}

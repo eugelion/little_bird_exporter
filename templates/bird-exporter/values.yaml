@@ -1,0 +1,78 @@
+namespace:
+  name: monitoring
+
+nameOverride: "little-bird-exporter"
+fullnameOverride: "little-bird-exporter"
+
+image:
+  repository: bird-exporter
+  tag: latest
+  pullPolicy: IfNotPresent
+
+replicaCount: 1
+
+
+birdProtocol: Global_192_168_1_1
+
+config:
+  pollIntervalSeconds: 30
+  metricsPort: 8080
+
+collectors:
+  - name: bird_bgp_global
+    collectorType: generic_exec
+    namespace: kube-system
+    podNameRegex: "calico-no"
+    execTimeoutSeconds: 30
+    execCommand: "birdcl show protocols all {protocol} | grep 'BGP state'"
+    metrics:
+      - name: bird_bgp_established
+        description: "1 if BGP session is Established, 0 otherwise"
+        labels: ["collector", "namespace", "pod", "protocol"]
+        parser:
+          type: regex_equals
+          pattern: "BGP state:\\s*(?P<state>[A-Za-z]+)"
+          group: state
+          expected: Established
+          successValue: 1
+          failureValue: 0
+      - name: bird_bgp_state
+        description: "BGP state encoded as 1 with state label"
+        labels: ["collector", "namespace", "pod", "protocol", "state"]
+        parser:
+          type: regex_state
+          pattern: "BGP state:\\s*(?P<state>[A-Za-z]+)"
+          group: state
+          stateLabel: state
+          value: 1
+
+service:
+  type: ClusterIP
+  port: 8083
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 200m
+    memory: 128Mi
+
+prometheus:
+  scrape: true
+  path: /metrics
+
+rbac:
+  create: true
+
+serviceAccount:
+  create: true
+  name: ""
+
+probes:
+  liveness:
+    initialDelaySeconds: 15
+    periodSeconds: 30
+  readiness:
+    initialDelaySeconds: 5
+    periodSeconds: 10

@@ -1,0 +1,43 @@
+birdProtocol: Global_192_168_1_1
+
+image:
+  repository: registry.example.com/bird-exporter
+  tag: "1.0.0"
+
+config:
+  pollIntervalSeconds: 30
+
+collectors:
+  - name: bird_bgp_global
+    collectorType: generic_exec
+    namespace: kube-system
+    podNameRegex: "calico-no"
+    execTimeoutSeconds: 30
+    execCommand: "birdcl show protocols all {protocol} | grep 'BGP state'"
+    metrics:
+      - name: bird_bgp_established
+        description: "1 if BGP session is Established, 0 otherwise"
+        labels: ["collector", "namespace", "pod", "protocol"]
+        parser:
+          type: regex_equals
+          pattern: "BGP state:\\s*(?P<state>[A-Za-z]+)"
+          group: state
+          expected: Established
+          successValue: 1
+          failureValue: 0
+
+  - name: filebeat_config_check
+    collectorType: generic_exec
+    namespace: kube-system
+    podNameRegex: "filebeat"
+    execTimeoutSeconds: 30
+    execCommand: "filebeat test config"
+    metrics:
+      - name: filebeat_config_ok
+        description: "1 if Filebeat config test passed, 0 otherwise"
+        labels: ["collector", "namespace", "pod"]
+        parser:
+          type: contains
+          pattern: "Config OK"
+          successValue: 1
+          failureValue: 0

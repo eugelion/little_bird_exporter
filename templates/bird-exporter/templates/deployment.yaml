@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "bird-exporter.fullname" . }}
+  namespace: {{ include "bird-exporter.namespace" . }}
+  labels:
+    {{- include "bird-exporter.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "bird-exporter.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "bird-exporter.selectorLabels" . | nindent 8 }}
+      {{- if .Values.prometheus.scrape }}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: {{ .Values.config.metricsPort | quote }}
+        prometheus.io/path: {{ .Values.prometheus.path | quote }}
+      {{- end }}
+    spec:
+      serviceAccountName: {{ include "bird-exporter.serviceAccountName" . }}
+      containers:
+        - name: exporter
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: metrics
+              containerPort: {{ .Values.config.metricsPort }}
+          env:
+            - name: CONFIG_PATH
+              value: /config/config.yaml
+            - name: BIRD_PROTOCOL
+              value: {{ .Values.birdProtocol | quote }}
+          volumeMounts:
+            - name: config
+              mountPath: /config
+              readOnly: true
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.prometheus.path }}
+              port: metrics
+            initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.prometheus.path }}
+              port: metrics
+            initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "bird-exporter.fullname" . }}-config
