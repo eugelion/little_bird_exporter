@@ -45,7 +45,7 @@ class PodExecCollector:
                 timeout=self.cfg.exec_timeout_seconds,
             )
             return ScrapeResult.from_output(pod_name, output)
-        except Exception as exc:  # noqa: BLE001 - record and continue per pod
+        except Exception as exc:
             logger.exception("Failed to scrape pod %s", pod_name)
             self.metrics.record_error(pod_name)
             return ScrapeResult.from_error(pod_name, str(exc))

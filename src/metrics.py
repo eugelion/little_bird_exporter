@@ -97,6 +97,7 @@ class CollectorMetrics:
             metric.name: _get_or_create_gauge(metric) for metric in cfg.metrics
         }
         self._last_label_values: dict[tuple[str, str], tuple[str, ...]] = {}
+        self._label_history: dict[tuple[str, str], set[tuple[str, ...]]] = {}
 
     def _labels(self, pod: str, **extra: str) -> dict[str, str]:
         return {
@@ -136,19 +137,29 @@ class CollectorMetrics:
             label_values = tuple(labels[label] for label in metric_config.labels)
             cache_key = (metric_config.name, pod)
             old_label_values = self._last_label_values.get(cache_key)
+            history = self._label_history.setdefault(cache_key, set())
 
             if old_label_values and old_label_values != label_values:
-                _safe_remove(self._gauges[metric_config.name], *old_label_values)
+                if metric_config.parser.type == "regex_state":
+                    self._gauges[metric_config.name].labels(*old_label_values).set(0)
+                else:
+                    _safe_remove(self._gauges[metric_config.name], *old_label_values)
 
             self._last_label_values[cache_key] = label_values
+            history.add(label_values)
+            if old_label_values:
+                history.add(old_label_values)
             self._gauges[metric_config.name].labels(*label_values).set(value)
 
     def remove_pod(self, pod: str) -> None:
         for metric_config in self.cfg.metrics:
             cache_key = (metric_config.name, pod)
+            label_values_to_remove = self._label_history.pop(cache_key, set())
             label_values = self._last_label_values.pop(cache_key, None)
             if label_values:
-                _safe_remove(self._gauges[metric_config.name], *label_values)
+                label_values_to_remove.add(label_values)
+            for known_label_values in label_values_to_remove:
+                _safe_remove(self._gauges[metric_config.name], *known_label_values)
 
     def cleanup_stale(self, seen_pods: set[str]) -> None:
         known_pods = {pod for _, pod in self._last_label_values}
