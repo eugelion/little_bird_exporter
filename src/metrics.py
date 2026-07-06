@@ -129,10 +129,18 @@ class CollectorMetrics:
 
     def update_metrics(self, pod: str, result: "ScrapeResult") -> None:
         for metric_config in self.cfg.metrics:
-            value, extra_labels = _parse_metric_value(
-                metric_config.parser,
-                result.output,
-            )
+            if result.error:
+                value = metric_config.parser.failure_value
+                extra_labels = {}
+                if metric_config.parser.type == "regex_state":
+                    extra_labels = {
+                        metric_config.parser.state_label: "error",
+                    }
+            else:
+                value, extra_labels = _parse_metric_value(
+                    metric_config.parser,
+                    result.output,
+                )
             labels = self._labels(pod, **extra_labels)
             label_values = tuple(labels[label] for label in metric_config.labels)
             cache_key = (metric_config.name, pod)

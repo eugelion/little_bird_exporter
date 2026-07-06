@@ -70,6 +70,7 @@ class CollectorConfig:
     pod_name_regex: str
     exec_command: str
     exec_timeout_seconds: int = 30
+    exec_retries: int = 1
     protocol: str = ""
     collector_type: str = "generic_exec"
     metrics: list[MetricConfig] = field(default_factory=list)
@@ -95,6 +96,10 @@ class CollectorConfig:
             elif f.name == "exec_timeout_seconds":
                 kwargs["exec_timeout_seconds"] = int(
                     raw.get("exec_timeout_seconds", raw.get("execTimeoutSeconds", 30))
+                )
+            elif f.name == "exec_retries":
+                kwargs["exec_retries"] = int(
+                    raw.get("exec_retries", raw.get("execRetries", 1))
                 )
             elif f.name == "metrics":
                 kwargs["metrics"] = [

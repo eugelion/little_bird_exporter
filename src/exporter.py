@@ -40,11 +40,17 @@ def run_scrape_loop(
     while not stop_event.is_set():
         started = time.time()
         try:
+            cycle_ok = True
             for collector in collectors:
                 for result in collector.collect():
                     _log_result(collector, result)
-            scrape_success.set(1)
-            last_scrape_timestamp.set(time.time())
+                    if result.error:
+                        cycle_ok = False
+            if cycle_ok:
+                scrape_success.set(1)
+                last_scrape_timestamp.set(time.time())
+            else:
+                scrape_success.set(0)
         except Exception:
             scrape_success.set(0)
             logger.exception("Scrape cycle failed")

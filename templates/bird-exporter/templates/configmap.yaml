@@ -18,6 +18,7 @@ data:
         pod_name_regex: {{ .podNameRegex | quote }}
         exec_command: {{ .execCommand | quote }}
         exec_timeout_seconds: {{ default 30 .execTimeoutSeconds }}
+        exec_retries: {{ default 1 .execRetries }}
         protocol: {{ $.Values.birdProtocol | quote }}
         metrics:
 {{ toYaml .metrics | nindent 10 }}
