@@ -15,6 +15,7 @@ collectors:
     namespace: kube-system
     podNameRegex: "calico-no"
     execTimeoutSeconds: 30
+    execRetries: 1
     execCommand: "birdcl show protocols all {protocol} | grep 'BGP state'"
     metrics:
       - name: bird_bgp_established
