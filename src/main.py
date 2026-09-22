@@ -49,17 +49,23 @@ def main() -> int:
     collectors = build_collectors(app_config.collectors, core_v1)
     start_http_server(app_config.metrics_port)
     logger.info("Metrics server started on port %s", app_config.metrics_port)
-    worker = threading.Thread(
-        target=run_scrape_loop,
-        args=(collectors, app_config.poll_interval_seconds, stop_event),
-        name="scrape-loop",
-        daemon=True,
-    )
-    worker.start()
+    workers: list[threading.Thread] = []
+    for collector in collectors:
+        interval = collector.cfg.poll_interval_seconds or app_config.poll_interval_seconds
+        worker = threading.Thread(
+            target=run_scrape_loop,
+            args=([collector], interval, stop_event),
+            name=f"scrape-loop-{collector.cfg.name}",
+            daemon=True,
+        )
+        worker.start()
+        workers.append(worker)
+    
     while not stop_event.is_set():
         time.sleep(1)
-
-    worker.join(timeout=5)
+        
+    for worker in workers:
+        worker.join(timeout=5)
     return 0
 
 
