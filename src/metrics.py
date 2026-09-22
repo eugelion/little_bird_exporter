@@ -26,7 +26,7 @@ scrape_duration_seconds = Gauge(
 )
 
 scrape_success = Gauge(
-    "little_bird_exporter_scrape_success",
+    "s",
     "1 if the last scrape cycle completed, 0 otherwise",
 )
 
@@ -98,7 +98,6 @@ class CollectorMetrics:
         }
         self._last_label_values: dict[tuple[str, str], tuple[str, ...]] = {}
         self._label_history: dict[tuple[str, str], set[tuple[str, ...]]] = {}
-
     def _labels(self, pod: str, **extra: str) -> dict[str, str]:
         return {
             "collector": self.cfg.name,
@@ -129,18 +128,10 @@ class CollectorMetrics:
 
     def update_metrics(self, pod: str, result: "ScrapeResult") -> None:
         for metric_config in self.cfg.metrics:
-            if result.error:
-                value = metric_config.parser.failure_value
-                extra_labels = {}
-                if metric_config.parser.type == "regex_state":
-                    extra_labels = {
-                        metric_config.parser.state_label: "error",
-                    }
-            else:
-                value, extra_labels = _parse_metric_value(
-                    metric_config.parser,
-                    result.output,
-                )
+            value, extra_labels = _parse_metric_value(
+                metric_config.parser,
+                result.output,
+            )
             labels = self._labels(pod, **extra_labels)
             label_values = tuple(labels[label] for label in metric_config.labels)
             cache_key = (metric_config.name, pod)
@@ -162,8 +153,8 @@ class CollectorMetrics:
     def remove_pod(self, pod: str) -> None:
         for metric_config in self.cfg.metrics:
             cache_key = (metric_config.name, pod)
-            label_values_to_remove = self._label_history.pop(cache_key, set())
             label_values = self._last_label_values.pop(cache_key, None)
+            label_values_to_remove = self._label_history.pop(cache_key, set())
             if label_values:
                 label_values_to_remove.add(label_values)
             for known_label_values in label_values_to_remove:
