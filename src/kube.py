@@ -43,17 +43,21 @@ def exec_in_pod(
     timeout: int = 30,
 ) -> str:
     started = time.monotonic()
-    response = stream(
-        core_v1.connect_get_namespaced_pod_exec,
-        pod_name,
-        namespace,
-        command=["/bin/sh", "-c", command],
-        stderr=True,
-        stdin=False,
-        stdout=True,
-        tty=False,
-        _preload_content=False,
-    )
+    # stream() temporarily monkeypatches api_client.request with a websocket call.
+    # That is not thread-safe, so exec through a dedicated ApiClient instead of the
+    # shared one, otherwise concurrent list_namespaced_pod calls go over websocket.
+    with client.ApiClient(core_v1.api_client.configuration) as exec_api_client:
+        response = stream(
+            client.CoreV1Api(exec_api_client).connect_get_namespaced_pod_exec,
+            pod_name,
+            namespace,
+            command=["/bin/sh", "-c", command],
+            stderr=True,
+            stdin=False,
+            stdout=True,
+            tty=False,
+            _preload_content=False,
+        )
     stdout_chunks: list[str] = []
     stderr_chunks: list[str] = []
 
